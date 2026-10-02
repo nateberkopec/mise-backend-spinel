@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-try:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15-arm64]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - name: Compile and run try
+        working-directory: test/fixture
+        env:
+          MISE_YES: "1"
+          SHELL: /bin/bash
+        run: |
+          mise ls-remote spinel:tobi/try | grep -x '1.10.1'
+          mise install
+          mise x -- try --help 2>&1 | grep -F 'try v1.10.1'
+          file "$(mise which try)" | grep -E 'Mach-O|ELF'
