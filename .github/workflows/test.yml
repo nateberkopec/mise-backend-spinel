@@ -22,8 +22,16 @@ jobs:
         env:
           MISE_YES: "1"
           SHELL: /bin/bash
+          MISE_ALWAYS_KEEP_DOWNLOAD: "1"
         run: |
           mise ls-remote spinel:tobi/try | grep -x '1.10.1'
           mise install
+          mise install --force
           mise x -- try --help 2>&1 | grep -F 'try v1.10.1'
           file "$(mise which try)" | grep -E 'Mach-O|ELF'
+          mise -C ../mismatch install
+          if mise -C ../mismatch x -- try --help > "$RUNNER_TEMP/spinel-mismatch.log" 2>&1; then
+            echo 'Changed build options reused the installed binary' >&2
+            exit 1
+          fi
+          grep -F 'Spinel build options differ' "$RUNNER_TEMP/spinel-mismatch.log"

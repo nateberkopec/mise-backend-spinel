@@ -1,0 +1,10 @@
+[plugins]
+spinel = "../.."
+
+[tools."spinel:tobi/try"]
+version = "1.10.1"
+entrypoint = "try.rb"
+bin = "try"
+source_ref = "a319af64b89f8584a06650278d28e863c0e4ce3f"
+spinel_ref = "1c84866b3acaaa6c568c3f239d3f4836f43c5bbb"
+tag_prefix = "v"

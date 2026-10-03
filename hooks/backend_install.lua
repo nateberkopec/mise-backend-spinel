@@ -39,9 +39,9 @@ function PLUGIN:BackendInstall(ctx)
         source_ref = commit(source_ref, "source_ref")
     else
         local tag = (options.tag_prefix or "") .. ctx.version
-        if not tag:match("^[%w_.-]+$") or tag:find("%.%.") or tag:match("^%-") then
-            error("version must be a Git tag")
-        end
+        cmd.exec('git check-ref-format "$SPINEL_TAG_REF"', {
+            env = { SPINEL_TAG_REF = "refs/tags/" .. tag },
+        })
         source_ref = "refs/tags/" .. tag
     end
 
@@ -51,7 +51,7 @@ function PLUGIN:BackendInstall(ctx)
     cmd.exec('mkdir -p "$SPINEL_WORK/source" "$SPINEL_INSTALL_BIN"', {
         env = { SPINEL_WORK = work, SPINEL_INSTALL_BIN = bin_dir },
     })
-    cmd.exec('git init -q "$SPINEL_SOURCE" && git -C "$SPINEL_SOURCE" remote add origin "$SPINEL_REPO" && git -C "$SPINEL_SOURCE" fetch -q --depth 1 origin "$SPINEL_REF" && git -C "$SPINEL_SOURCE" checkout -q --detach FETCH_HEAD', {
+    cmd.exec('git init -q "$SPINEL_SOURCE" && (git -C "$SPINEL_SOURCE" remote set-url origin "$SPINEL_REPO" 2>/dev/null || git -C "$SPINEL_SOURCE" remote add origin "$SPINEL_REPO") && git -C "$SPINEL_SOURCE" fetch -q --depth 1 origin "$SPINEL_REF" && git -C "$SPINEL_SOURCE" checkout -q --detach FETCH_HEAD', {
         env = { SPINEL_SOURCE = source, SPINEL_REPO = github_repo(ctx.tool), SPINEL_REF = source_ref },
     })
 
@@ -59,7 +59,7 @@ function PLUGIN:BackendInstall(ctx)
     if options.spinel_ref then
         local spinel_ref = commit(options.spinel_ref, "spinel_ref")
         local spinel_dir = file.join_path(work, "spinel")
-        cmd.exec('git init -q "$SPINEL_SOURCE" && git -C "$SPINEL_SOURCE" remote add origin https://github.com/matz/spinel.git && git -C "$SPINEL_SOURCE" fetch -q --depth 1 origin "$SPINEL_REF" && git -C "$SPINEL_SOURCE" checkout -q --detach FETCH_HEAD', {
+        cmd.exec('git init -q "$SPINEL_SOURCE" && (git -C "$SPINEL_SOURCE" remote set-url origin https://github.com/matz/spinel.git 2>/dev/null || git -C "$SPINEL_SOURCE" remote add origin https://github.com/matz/spinel.git) && git -C "$SPINEL_SOURCE" fetch -q --depth 1 origin "$SPINEL_REF" && git -C "$SPINEL_SOURCE" checkout -q --detach FETCH_HEAD', {
             env = { SPINEL_SOURCE = spinel_dir, SPINEL_REF = spinel_ref },
         })
         cmd.exec("make deps && make -j2", { cwd = spinel_dir })
@@ -70,13 +70,21 @@ function PLUGIN:BackendInstall(ctx)
     if type(compiler) ~= "string" or compiler == "" then
         error("spinel must be an executable path or name")
     end
-    cmd.exec('"$SPINEL_COMPILER" "$SPINEL_ENTRYPOINT" -o "$SPINEL_OUTPUT"', {
+    cmd.exec('"$SPINEL_COMPILER" "$SPINEL_ENTRYPOINT" -o "$SPINEL_OUTPUT" && test -x "$SPINEL_OUTPUT"', {
         cwd = source,
         env = {
             SPINEL_COMPILER = compiler,
             SPINEL_ENTRYPOINT = entrypoint,
             SPINEL_OUTPUT = file.join_path(bin_dir, binary),
         },
+    })
+    local recipe = require("json").encode({
+        ctx.tool, ctx.version, entrypoint, binary,
+        options.source_ref or "", options.source_ref and "" or (options.tag_prefix or ""),
+        options.spinel_ref or "", options.spinel_ref and "" or (options.spinel or "spinel"),
+    })
+    cmd.exec('printf %s "$SPINEL_RECIPE" > "$SPINEL_MANIFEST"', {
+        env = { SPINEL_RECIPE = recipe, SPINEL_MANIFEST = file.join_path(ctx.install_path, ".spinel-recipe") },
     })
     return {}
 end
