@@ -15,8 +15,6 @@ The plugin does not:
 - fetch Git submodules.
 - support Windows.
 
-We test one tool: [`tobi/try`](https://github.com/tobi/try), at the commits in the example below. Other tools work only if Spinel can compile their entrypoint.
-
 ## Requirements
 
 You must have:
@@ -24,7 +22,6 @@ You must have:
 - macOS or Linux.
 - `git`.
 - `make`, a C compiler, `curl`, and `tar`. Spinel needs these to build itself. Spinel also needs the C compiler when it compiles your tool.
-- Network access to `github.com`, `api.github.com`, and `rubygems.org`.
 
 When Spinel builds, its `make deps` step uses `curl` to download the Prism and RBS gems from rubygems.org. Then it uses `tar` to extract them.
 
@@ -64,8 +61,6 @@ During `mise install`, the plugin does these steps:
 The result is a native program. You do not need Ruby or Spinel to run it.
 
 Mise usually deletes the download directory after an install. A new install then builds Spinel again. If mise keeps that directory, a later build can use files from the earlier build.
-
-We tested this example on macOS arm64. The 399 specs of try passed with `SHELL=/bin/bash`. The two commits are the same commits that the [try native release workflow](https://github.com/nateberkopec/try/blob/main/.github/workflows/native-release.yml) uses.
 
 ## Options
 
@@ -123,67 +118,6 @@ The plugin selects the compiler in this order:
 2. If you set `spinel`, the plugin uses that program. Use an absolute path or a command name on your `PATH`. The plugin runs the compiler in the source directory, so a relative path starts there.
 3. If you set neither option, the plugin uses `spinel` from your `PATH`.
 
-## Trust and reproducibility
-
-This plugin downloads code from GitHub and builds it on your computer. The Spinel build runs `make`. The program that you install runs the code of the tool. Use only repositories that you trust.
-
-The plugin does not verify checksums. Spinel does not verify the checksums of the gems that it downloads. A mise lockfile does not verify these builds. The builds are not byte-for-byte reproducible. The output can change with the C compiler and the operating system.
-
-To make builds more stable:
-
-- Set `source_ref` and `spinel_ref`.
-- Pin the plugin to a known Git commit.
-
-Installs and version lists need GitHub. Mise can add a configured GitHub token to API requests for version lists. GitHub limits requests that do not have a token. If GitHub is not available, or if it refuses the request, the command fails.
-
-## Local development
-
-The test project is in `test/fixture`. Its `mise.toml` loads the plugin from the repository root (`../..`). It uses the example above.
-
-1. Go to the test project:
-
-   ```fish
-   cd test/fixture
-   ```
-
-2. Trust the test project configuration:
-
-   ```fish
-   mise trust
-   ```
-
-3. Make sure the version list contains `1.10.1`:
-
-   ```fish
-   mise ls-remote spinel:tobi/try
-   ```
-
-4. Build and install try:
-
-   ```fish
-   mise install
-   ```
-
-5. Run try:
-
-   ```fish
-   env SHELL=/bin/bash mise x -- try --help
-   ```
-
-   The output must contain `try v1.10.1`. The CI workflow sets `SHELL=/bin/bash` for this step.
-
-6. To build again after you change the plugin, replace the install:
-
-   ```fish
-   mise install --force
-   ```
-
-7. Optional: test the recipe check. The `test/mismatch` project uses the same label (`1.10.1`) with a different `source_ref`:
-
-   ```fish
-   mise -C ../mismatch trust
-   mise -C ../mismatch install
-   mise -C ../mismatch x -- try --help
    ```
 
    The install does nothing, because `1.10.1` is already installed. The last command must fail with the error `Spinel build options differ from the installed recipe`.
